@@ -1,0 +1,72 @@
+[gd_scene load_steps=4 format=3 uid="uid://dhbq208xacbj1"]
+
+[ext_resource type="Texture2D" uid="uid://dfyjxm0gpu3dw" path="res://Art/master.png" id="1_5e4ay"]
+
+[sub_resource type="GDScript" id="GDScript_ou74w"]
+resource_name = "res://master.gd"
+script/source = "extends CharacterBody2D
+
+class_name Master
+
+signal jumped
+signal moved(dir : int)
+signal attacked
+
+@export var SPEED : float = 300. 
+@export var JUMP_VEL : float = -500.
+
+@export var DELAY : float = 1.
+
+@onready var sprite = $Sprite2D
+
+var gravity = ProjectSettings.get_setting(\"physics/2d/default_gravity\")
+
+var prev_dir : int = 0
+
+func _ready():
+	pass
+	
+func _process(delta):
+	
+	if not is_on_floor():
+		velocity.y += gravity * delta
+		
+	if Input.is_action_just_pressed(\"jump\") and is_on_floor():
+		velocity.y = JUMP_VEL
+		get_tree().create_timer(DELAY).timeout.connect(func(): jumped.emit())
+			
+	var dir : int = Input.get_axis(\"left\", \"right\")	
+
+	if dir:
+		velocity.x = dir * SPEED
+		sprite.flip_h = (dir < 0)	
+	else:
+		velocity.x = move_toward(velocity.x, 0., SPEED)
+	
+	if dir != prev_dir:
+		get_tree().create_timer(DELAY).timeout.connect(func(): moved.emit(dir))
+	
+	prev_dir = dir	
+	
+	if Input.is_action_just_pressed(\"attack\"):
+		get_tree().create_timer(DELAY).timeout.connect(func(): attacked.emit())
+		
+	move_and_slide()
+"
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_c0to1"]
+radius = 22.0
+height = 78.0
+
+[node name="Master" type="CharacterBody2D"]
+texture_filter = 1
+collision_layer = 2
+script = SubResource("GDScript_ou74w")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+scale = Vector2(5, 5)
+texture = ExtResource("1_5e4ay")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(11, 2)
+shape = SubResource("CapsuleShape2D_c0to1")
