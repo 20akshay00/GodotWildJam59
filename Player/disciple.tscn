@@ -1,6 +1,7 @@
-[gd_scene load_steps=8 format=3 uid="uid://dd44dy0jebd3s"]
+[gd_scene load_steps=9 format=3 uid="uid://dd44dy0jebd3s"]
 
 [ext_resource type="Texture2D" uid="uid://bfrr48qc4e2x1" path="res://Art/disciple.png" id="1_imeyc"]
+[ext_resource type="PackedScene" uid="uid://bc2lb7s0tcvag" path="res://Common/hurtbox.tscn" id="2_767t7"]
 
 [sub_resource type="GDScript" id="GDScript_t166d"]
 resource_name = "disciple.gd"
@@ -8,56 +9,48 @@ script/source = "extends CharacterBody2D
 
 @export var SPEED : float = 300. 
 @export var JUMP_VEL : float = -500.
+@export var master : Node2D
 
 @onready var sprite = $Sprite2D
 @onready var animation_player = $AnimationPlayer
 
 var gravity = ProjectSettings.get_setting(\"physics/2d/default_gravity\")
 
+var can_process = false
+
 func _ready():
+	get_tree().create_timer(1).timeout.connect(func(): can_process = true)
 	pass
 	
 func _process(delta):
-	if not is_on_floor():
-		velocity.y += gravity * delta
-		
-	move_and_slide()
-
-func _on_master_jumped() -> void:
-	velocity.y = JUMP_VEL
-
-func _on_master_moved(dir) -> void:
-	if dir:
-		velocity.x = dir * SPEED
-		sprite.flip_h = (dir < 0)	
-	else:
-		velocity.x = move_toward(velocity.x, 0., SPEED)
-		
-func _on_master_attacked() -> void:
+	if can_process:	
+		var data = master.history.pop_front()
+		match data[0]:
+			\"MOVE\":			
+				if position == data[2] and master.position == position:		
+					master.reset_history()
+					can_process = false
+					sprite.flip_h = master.sprite.flip_h
+					get_tree().create_timer(1).timeout.connect(func(): can_process = true)
+				else:
+					sprite.flip_h = data[1]
+					position = data[2]
+				
+			\"ATTACK\":
+				attack()
+			
+func attack():
+	can_process = false
 	animation_player.play(\"attack\")
 	await animation_player.animation_finished
+	can_process = true
 	animation_player.play(\"idle\")
+				
 "
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_h1sey"]
 radius = 22.0
 height = 78.0
-
-[sub_resource type="Animation" id="Animation_4r8u8"]
-resource_name = "attack"
-length = 0.7
-tracks/0/type = "value"
-tracks/0/imported = false
-tracks/0/enabled = true
-tracks/0/path = NodePath("Sprite2D:frame")
-tracks/0/interp = 1
-tracks/0/loop_wrap = true
-tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.15, 0.3, 0.4, 0.55),
-"transitions": PackedFloat32Array(1, 1, 1, 1, 1),
-"update": 1,
-"values": [1, 2, 3, 4, 5]
-}
 
 [sub_resource type="Animation" id="Animation_7fn4s"]
 length = 0.001
@@ -71,12 +64,29 @@ tracks/0/keys = {
 "times": PackedFloat32Array(0),
 "transitions": PackedFloat32Array(1),
 "update": 1,
-"values": [1]
+"values": [0]
+}
+
+[sub_resource type="Animation" id="Animation_4r8u8"]
+resource_name = "attack"
+length = 0.95
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.15, 0.3, 0.45, 0.55, 0.7, 0.85),
+"transitions": PackedFloat32Array(1, 1, 1, 1, 1, 1, 1),
+"update": 1,
+"values": [6, 7, 8, 9, 10, 11, 6]
 }
 
 [sub_resource type="Animation" id="Animation_jscek"]
 resource_name = "idle"
 length = 0.1
+loop_mode = 1
 tracks/0/type = "value"
 tracks/0/imported = false
 tracks/0/enabled = true
@@ -103,14 +113,13 @@ collision_layer = 2
 script = SubResource("GDScript_t166d")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-position = Vector2(21, 0)
 scale = Vector2(5, 5)
 texture = ExtResource("1_imeyc")
 hframes = 6
-frame = 1
+vframes = 4
 
 [node name="CollisionShape2D2" type="CollisionShape2D" parent="."]
-position = Vector2(11, 2)
+position = Vector2(0, 1)
 shape = SubResource("CapsuleShape2D_h1sey")
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="."]
@@ -118,3 +127,5 @@ autoplay = "idle"
 libraries = {
 "": SubResource("AnimationLibrary_nvuaw")
 }
+
+[node name="Hurtbox" parent="." instance=ExtResource("2_767t7")]

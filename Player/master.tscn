@@ -1,6 +1,7 @@
-[gd_scene load_steps=4 format=3 uid="uid://dhbq208xacbj1"]
+[gd_scene load_steps=8 format=3 uid="uid://dhbq208xacbj1"]
 
-[ext_resource type="Texture2D" uid="uid://dfyjxm0gpu3dw" path="res://Art/master.png" id="1_5e4ay"]
+[ext_resource type="Texture2D" uid="uid://bfrr48qc4e2x1" path="res://Art/disciple.png" id="1_ub28a"]
+[ext_resource type="Texture2D" uid="uid://bqqjkblwgv3px" path="res://Art/attack_command.png" id="2_fa2gi"]
 
 [sub_resource type="GDScript" id="GDScript_ou74w"]
 resource_name = "res://master.gd"
@@ -8,20 +9,16 @@ script/source = "extends CharacterBody2D
 
 class_name Master
 
-signal jumped
-signal moved(dir : int)
-signal attacked
-
 @export var SPEED : float = 300. 
 @export var JUMP_VEL : float = -500.
 
 @export var DELAY : float = 1.
+var history = []
 
 @onready var sprite = $Sprite2D
+@onready var commands = $Commands
 
 var gravity = ProjectSettings.get_setting(\"physics/2d/default_gravity\")
-
-var prev_dir : int = 0
 
 func _ready():
 	pass
@@ -33,7 +30,6 @@ func _process(delta):
 		
 	if Input.is_action_just_pressed(\"jump\") and is_on_floor():
 		velocity.y = JUMP_VEL
-		get_tree().create_timer(DELAY).timeout.connect(func(): jumped.emit())
 			
 	var dir : int = Input.get_axis(\"left\", \"right\")	
 
@@ -43,20 +39,64 @@ func _process(delta):
 	else:
 		velocity.x = move_toward(velocity.x, 0., SPEED)
 	
-	if dir != prev_dir:
-		get_tree().create_timer(DELAY).timeout.connect(func(): moved.emit(dir))
-	
-	prev_dir = dir	
+	history.push_back([\"MOVE\", sprite.flip_h, position])
 	
 	if Input.is_action_just_pressed(\"attack\"):
-		get_tree().create_timer(DELAY).timeout.connect(func(): attacked.emit())
+		shout(commands.get_node(\"Attack\"))
+		history.push_back([\"ATTACK\"])
 		
 	move_and_slide()
+	
+func shout(cmd : Sprite2D):
+	var tween = get_tree().create_tween()
+	tween.tween_property(cmd, \"modulate:a\", 1.0, 0.2)
+	tween.tween_property(cmd, \"modulate:a\", 0., 0.3)
+		
+	pass
+	
+func reset_history():
+	history = []
 "
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_c0to1"]
 radius = 22.0
 height = 78.0
+
+[sub_resource type="Animation" id="Animation_5sl64"]
+resource_name = "idle"
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [12]
+}
+
+[sub_resource type="Animation" id="Animation_y6q5m"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite2D:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [12]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_vw3bb"]
+_data = {
+"RESET": SubResource("Animation_y6q5m"),
+"idle": SubResource("Animation_5sl64")
+}
 
 [node name="Master" type="CharacterBody2D"]
 texture_filter = 1
@@ -65,8 +105,25 @@ script = SubResource("GDScript_ou74w")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
 scale = Vector2(5, 5)
-texture = ExtResource("1_5e4ay")
+texture = ExtResource("1_ub28a")
+hframes = 6
+vframes = 4
+frame = 12
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-position = Vector2(11, 2)
+position = Vector2(1, 1)
 shape = SubResource("CapsuleShape2D_c0to1")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+autoplay = "idle"
+libraries = {
+"": SubResource("AnimationLibrary_vw3bb")
+}
+
+[node name="Commands" type="Node2D" parent="."]
+
+[node name="Attack" type="Sprite2D" parent="Commands"]
+modulate = Color(1, 1, 1, 0)
+position = Vector2(0, -59)
+scale = Vector2(2, 2)
+texture = ExtResource("2_fa2gi")
